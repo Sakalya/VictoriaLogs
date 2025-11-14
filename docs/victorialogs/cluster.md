@@ -291,6 +291,35 @@ See also [generic mTLS docs for VictoriaLogs](https://docs.victoriametrics.com/v
 [Enterprise version of VictoriaLogs](https://docs.victoriametrics.com/victoriametrics/enterprise/) can be downloaded and evaluated for free
 from [the releases page](https://github.com/VictoriaMetrics/VictoriaLogs/releases/latest). See [how to request a free trial license](https://victoriametrics.com/products/enterprise/trial/).
 
+## Rebalancing
+
+Every `vlinsert` node spreads evenly (shards) incoming logs among `vlstorage` nodes specified in the `-storageNode` command-line flag
+according to the [VictoriaLogs cluster architecture](https://docs.victoriametrics.com/victorialogs/cluster/#architecture).
+This guarantees that the data is spread evenly among `vlstorage` nodes. When new `vlstorage` nodes are added to the `-storageNode` list
+at `vlinsert`, then all the newly ingested logs are spread evenly among old and new `vlstorage` nodes, while historical data remains
+on the old `vlstorage` nodes. This improves data ingestion performance and querying performance for typical production workloads,
+since newly ingested logs are spread evenly across all the `vlstorage` nodes, while typical queries are performed over the newly ingested logs,
+which are already present among all the `vlstorage` nodes. This also provides the following benefits comparing to the scheme
+with automatic data rebalancing:
+
+- Cluster performance remains reliable just after adding new `vlstorage` nodes, since network bandwidth, disk IO and CPU resources
+  aren't spent on automatic data rebalancing, which may take days for re-balancing of petabytes of data.
+- This eliminates the whole class of hard-to-troubleshoot and resolve issues, which may happen with the cluster during automatic data rebalancing.
+  For example, what happens if some of `vlstorage` nodes become unavailable during the re-balancing? Or what happens if new `vlstorage` nodes
+  are added while the previous data re-balancing isn't finished yet?
+- This allows building flexible cluster schemes where distinct subsets of `vlinsert` nodes spread incoming logs among different subsets of `vlstorage`
+  nodes with different configs and different hardware resources.
+
+The following approaches exist for manual data re-balancing among old and new `vlstorage` nodes if it is really needed:
+
+- To wait until historical data is automatically deleted from old `vlstorage` nodes according to the configured [retention](https://docs.victoriametrics.com/victorialogs/#retention).
+  Then old and new `vlstorage` nodes will have equal amounts of data.
+- To configure `vlinsert` to write newly ingested logs only to new `vlstorage` nodes, while `vlselect` nodes should continue querying data from all the `vlstorage` nodes.
+  Then wait until the data size on the new `vlstorage` nodes becomes equal to the data size on the old `vlstorage` nodes, and return back old `vlstorage` nodes
+  to `-storageNode` list at `vlinsert`.
+- To manually move historical per-day partitions from old `vlstorage` nodes to new `vlstorage` nodes. VictoriaLogs provides the functionality, which simplifies
+  doing this work without the need to stop or restart `vlstorage` nodes - see [partitions lifecycle docs](https://docs.victoriametrics.com/victorialogs/#partitions-lifecycle).
+
 ## Quick start
 
 The following guide covers the following topics for a Linux host:
