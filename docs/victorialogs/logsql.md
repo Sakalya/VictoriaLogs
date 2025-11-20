@@ -822,6 +822,7 @@ host.hostname:""
 
 See also:
 
+- [No-op filter](https://docs.victoriametrics.com/victorialogs/logsql/#no-op-filter)
 - [Any value filter](https://docs.victoriametrics.com/victorialogs/logsql/#any-value-filter)
 - [Word filter](https://docs.victoriametrics.com/victorialogs/logsql/#word-filter)
 - [Logical filter](https://docs.victoriametrics.com/victorialogs/logsql/#logical-filter)
@@ -837,9 +838,27 @@ host.hostname:*
 
 See also:
 
+- [No-op filter](https://docs.victoriametrics.com/victorialogs/logsql/#no-op-filter)
 - [Empty value filter](https://docs.victoriametrics.com/victorialogs/logsql/#empty-value-filter)
 - [Prefix filter](https://docs.victoriametrics.com/victorialogs/logsql/#prefix-filter)
 - [Logical filter](https://docs.victoriametrics.com/victorialogs/logsql/#logical-filter)
+
+### No-op filter
+
+Sometimes it is needed to apply e.g. `no-op` filter to the given [log field](https://docs.victoriametrics.com/victorialogs/keyconcepts/#data-model),
+which does nothing, e.g. it matches any logs, even if they do not contain the given log field.
+
+The following options are supported for no-op flter:
+
+- `field_name:in(*)` - a special case for the [`in()` filter](https://docs.victoriametrics.com/victorialogs/logsql/#multi-exact-filter)
+- `field_name:contains_any(*)` - a special case for the [`contains_any()` filter](https://docs.victoriametrics.com/victorialogs/logsql/#contains_any-filter)
+- `field_name:contains_all(*)` - a special case for the [`contains_all()` filter](https://docs.victoriametrics.com/victorialogs/logsql/#contains_all-filter)
+
+See also:
+
+- [Empty value filter](https://docs.victoriametrics.com/victorialogs/logsql/#empty-value-filter)
+- [Any value filter](https://docs.victoriametrics.com/victorialogs/logsql/#any-value-filter)
+
 
 ### Exact filter
 
@@ -959,6 +978,8 @@ log.level:in("error", "fatal")
 
 It works very fast for long lists passed to `in()`.
 
+There is a special case - `in(*)` - this filter matches all the logs. See [no-op filter docs](https://docs.victoriametrics.com/victorialogs/logsql/#no-op-filter) for details.
+
 It is possible to pass arbitrary [query](https://docs.victoriametrics.com/victorialogs/logsql/#query-syntax) inside `in(...)` filter in order to match against the results of this query.
 See [these docs](https://docs.victoriametrics.com/victorialogs/logsql/#subquery-filter) for details.
 
@@ -988,6 +1009,8 @@ This is equivalent to the following query:
 foo AND "bar baz"
 ```
 
+There is a special case - `contains_all(*)` - this filter matches all the logs. See [no-op filter docs](https://docs.victoriametrics.com/victorialogs/logsql/#no-op-filter) for details.
+
 It is possible to pass arbitrary [query](https://docs.victoriametrics.com/victorialogs/logsql/#query-syntax) inside `contains_all(...)` filter in order to match against the results of this query.
 See [these docs](https://docs.victoriametrics.com/victorialogs/logsql/#subquery-filter) for details.
 
@@ -1015,6 +1038,8 @@ This is equivalent to the following query:
 ```logsql
 foo OR "bar baz"
 ```
+
+There is a special case - `contains_any(*)` - this filter matches all the logs. See [no-op filter docs](https://docs.victoriametrics.com/victorialogs/logsql/#no-op-filter) for details.
 
 It is possible to pass arbitrary [query](https://docs.victoriametrics.com/victorialogs/logsql/#query-syntax) inside `contains_any(...)` filter in order to match against the results of this query.
 See [these docs](https://docs.victoriametrics.com/victorialogs/logsql/#subquery-filter) for details.
