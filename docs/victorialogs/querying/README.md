@@ -455,6 +455,12 @@ in the format compatible with [Prometheus querying API](https://prometheus.io/do
 The `<query>` must contain [`stats` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#stats-pipe). The calculated stats is converted into metrics
 with labels from `by(...)` clause of the `| stats by(...)` pipe.
 
+The [`row_any`](https://docs.victoriametrics.com/victorialogs/logsql/#row_any-stats), [`row_min`](https://docs.victoriametrics.com/victorialogs/logsql/#row_min-stats)
+and [`row_max`](https://docs.victoriametrics.com/victorialogs/logsql/#row_max-stats) stats functions create labels instead of metrics.
+
+Additional labels can be created from metrics via [`format` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#format-pipe).
+Additional metrics can be created from the existing metrics via [`math` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#math-pipe).
+
 The `<t>` arg can contain values in [any supported format](https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#timestamp-formats).
 If `<t>` is missing, then it equals to the current time.
 
@@ -531,6 +537,16 @@ The stats is returned in the format compatible with [Prometheus querying API](ht
 
 The `<query>` must contain [`stats` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#stats-pipe). The calculated stats is converted into metrics
 with labels from `by(...)` clause of the `| stats by(...)` pipe.
+
+The [`row_any`](https://docs.victoriametrics.com/victorialogs/logsql/#row_any-stats), [`row_min`](https://docs.victoriametrics.com/victorialogs/logsql/#row_min-stats)
+and [`row_max`](https://docs.victoriametrics.com/victorialogs/logsql/#row_max-stats) stats functions create labels instead of metrics.
+
+Additional labels can be created from metrics via [`format` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#format-pipe).
+Additional metrics can be created from the existing metrics via [`math` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#math-pipe).
+
+It may be useful to use [`running_stats`](https://docs.victoriametrics.com/victorialogs/logsql/#running_stats-pipe)
+and [`total_stats`](https://docs.victoriametrics.com/victorialogs/logsql/#total_stats-pipe) pipes for calculating running and total stats over the stats
+returned by the [`stats` pipe](https://docs.victoriametrics.com/victorialogs/logsql/#stats-pipe).
 
 The `<start>` and `<end>` args can contain values in [any supported format](https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#timestamp-formats).
 If `<start>` is missing, then it equals to the minimum timestamp across logs stored in VictoriaLogs.
