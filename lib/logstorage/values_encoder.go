@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,6 +54,9 @@ const (
 
 	// column blocks with ipv4 addresses are encoded as 4-byte strings.
 	valueTypeIPv4 = valueType(8)
+
+	// column blocks with ipv6 addresses are encoded as 16-byte strings.
+	valueTypeIPv6 = valueType(8)
 
 	// column blocks with ISO8601 timestamps are encoded into valueTypeTimestampISO8601.
 	// These timestamps are commonly used by Logstash.
@@ -1431,4 +1435,159 @@ func marshalTimestampRFC3339NanoString(dst []byte, nsecs int64) []byte {
 // marshalTimestampRFC3339NanoPreciseString appends RFC3339-formatted nsecs with nanosecond precision to dst and returns the result.
 func marshalTimestampRFC3339NanoPreciseString(dst []byte, nsecs int64) []byte {
 	return time.Unix(0, nsecs).UTC().AppendFormat(dst, "2006-01-02T15:04:05.000000000Z07:00")
+}
+
+func tryIPv6Encoding(dstBuf []byte, dstValues, srcValues []string) ([]byte, []string, valueType, uint64, uint64) {
+	// Pre-allocate space for [16]byte addresses
+	ipv6s := make([][16]byte, len(srcValues))
+
+	var minValue, maxValue [16]byte
+	minValueSet := false
+
+	for i, v := range srcValues {
+		ip, ok := tryParseIPv6(v)
+		if !ok {
+			return dstBuf, dstValues, valueTypeUnknown, 0, 0
+		}
+		ipv6s[i] = ip
+
+		if !minValueSet {
+			minValue = ip
+			maxValue = ip
+			minValueSet = true
+		} else {
+			if compareIPv6(ip, minValue) < 0 {
+				minValue = ip
+			}
+			if compareIPv6(ip, maxValue) > 0 {
+				maxValue = ip
+			}
+		}
+	}
+
+	// Encode all IPv6 addresses as 16-byte strings
+	for _, ip := range ipv6s {
+		dstLen := len(dstBuf)
+		dstBuf = append(dstBuf, ip[:]...)
+		v := bytesutil.ToUnsafeString(dstBuf[dstLen:])
+		dstValues = append(dstValues, v)
+	}
+
+	// For IPv6, we can't pack min/max into uint64, so we return 0, 0
+	// This means column-level filtering optimization will need to be implemented separately
+	return dstBuf, dstValues, valueTypeIPv6, 0, 0
+}
+
+// tryParseIPv6 attempts to parse a string as IPv6 address
+// Returns the [16]byte representation and success boolean
+func tryParseIPv6(s string) ([16]byte, bool) {
+	var result [16]byte
+
+	// Quick validation - IPv6 addresses must contain colons
+	// Minimum length: "::" (compressed all-zeros)
+	// Maximum length: full expanded form
+	if len(s) < 2 || len(s) > 45 {
+		return result, false
+	}
+
+	ip := net.ParseIP(s)
+	if ip == nil {
+		return result, false
+	}
+
+	// Get the 16-byte representation (IPv6)
+	ip = ip.To16()
+	if ip == nil {
+		return result, false
+	}
+
+	// Reject IPv4 addresses (they would be parsed as IPv4-mapped IPv6)
+	// Check if it's an IPv4 address by seeing if it can be converted to 4 bytes
+	if ip.To4() != nil {
+		// This is an IPv4 address, not pure IPv6
+		return result, false
+	}
+
+	copy(result[:], ip)
+	return result, true
+}
+
+// compareIPv6 compares two IPv6 addresses represented as [16]byte.
+// Returns:
+//
+//	-1 if a < b
+//	 0 if a == b
+//	+1 if a > b
+func compareIPv6(a, b [16]byte) int {
+	for i := 0; i < 16; i++ {
+		if a[i] < b[i] {
+			return -1
+		}
+		if a[i] > b[i] {
+			return 1
+		}
+	}
+	return 0
+}
+
+// marshalIPv6 converts [16]byte to binary string (for storage)
+func marshalIPv6(ip [16]byte) string {
+	return string(ip[:])
+}
+
+// ipv6ToBytes converts [16]byte to byte slice (for encoding operations)
+func ipv6ToBytes(ip [16]byte) []byte {
+	return ip[:]
+}
+
+// bytesToIPv6 converts byte slice to [16]byte
+func bytesToIPv6(b []byte) ([16]byte, bool) {
+	var result [16]byte
+	if len(b) != 16 {
+		return result, false
+	}
+	copy(result[:], b)
+	return result, true
+}
+
+// isIPv6InRange checks if an IPv6 address is within a range
+func isIPv6InRange(ip, min, max [16]byte) bool {
+	return compareIPv6(ip, min) >= 0 && compareIPv6(ip, max) <= 0
+}
+
+// normalizeIPv6 normalizes an IPv6 address to canonical form
+func normalizeIPv6(s string) (string, bool) {
+	ip, ok := tryParseIPv6(s)
+	if !ok {
+		return "", false
+	}
+	netIP := net.IP(ip[:])
+	return netIP.String(), true
+}
+
+// isIPv6Loopback checks if the address is the IPv6 loopback (::1)
+func isIPv6Loopback(ip [16]byte) bool {
+	loopback := [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	return ip == loopback
+}
+
+// isIPv6Unspecified checks if the address is the unspecified address (::)
+func isIPv6Unspecified(ip [16]byte) bool {
+	var zero [16]byte
+	return ip == zero
+}
+
+// isIPv6LinkLocal checks if the address is link-local (fe80::/10)
+func isIPv6LinkLocal(ip [16]byte) bool {
+	return ip[0] == 0xfe && (ip[1]&0xc0) == 0x80
+}
+
+// isIPv6UniqueLocal checks if the address is ULA (fc00::/7)
+func isIPv6UniqueLocal(ip [16]byte) bool {
+	return (ip[0] & 0xfe) == 0xfc
+}
+
+// isIPv6Multicast checks if the address is multicast (ff00::/8)
+func isIPv6Multicast(ip [16]byte) bool {
+	return ip[0] == 0xff
 }
