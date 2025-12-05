@@ -56,7 +56,7 @@ const (
 	valueTypeIPv4 = valueType(8)
 
 	// column blocks with ipv6 addresses are encoded as 16-byte strings.
-	valueTypeIPv6 = valueType(8)
+	valueTypeIPv6 = valueType(16)
 
 	// column blocks with ISO8601 timestamps are encoded into valueTypeTimestampISO8601.
 	// These timestamps are commonly used by Logstash.
